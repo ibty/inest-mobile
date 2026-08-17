@@ -1,0 +1,9 @@
+# PREVIEW DEPLOY — not the live site.
+# Blocks search engines so this copy cannot compete with
+# inestinteriors.com for the same content.
+#
+# WHEN THIS BECOMES THE REAL SITE: delete this file,
+# and remove the noindex meta tag in index.html.
+
+User-agent: *
+Disallow: /
