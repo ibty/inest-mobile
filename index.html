@@ -462,7 +462,7 @@ a{color:inherit;text-decoration:none}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
 /* lightbox — fullscreen project photos */
-.reel__img,.reel__scrim{cursor:zoom-in}
+.reel__img,.reel__scrim,.sh-thumb{cursor:zoom-in}
 .lb{
   position:fixed;inset:0;z-index:110;max-width:480px;margin:0 auto;
   background:rgba(6,5,4,.97);display:grid;place-items:center;
@@ -938,17 +938,18 @@ reelsEl.addEventListener("click", function(ev){
 });
 
 /* ---------- sheet ---------- */
-var sheet = document.getElementById("sheet");
+var sheet = document.getElementById("sheet"), sheetKey = null;
 function openSheet(key){
   var p = PROJECTS[key];
+  sheetKey = key;
   document.getElementById("sh-loc").textContent   = p.type + " · " + p.place;
   document.getElementById("sh-title").textContent = p.title;
   document.getElementById("sh-type").textContent  = p.type;
   document.getElementById("sh-scope").textContent = p.scope;
   document.getElementById("sh-place").textContent = p.place;
   document.getElementById("sh-body").innerHTML    = p.body.map(function(t){ return "<p>"+t+"</p>"; }).join("");
-  document.getElementById("sh-strip").innerHTML   = p.imgs.map(function(s){
-    return '<img loading="lazy" alt="'+p.title+'" src="'+B+s+'">';
+  document.getElementById("sh-strip").innerHTML   = p.imgs.map(function(s,i){
+    return '<img class="sh-thumb" loading="lazy" alt="'+p.title+' — photo '+(i+1)+'" data-idx="'+i+'" src="'+B+s+'">';
   }).join("");
   document.getElementById("sh-wa").href = WA + encodeURIComponent("Hello Inest Interiors, I saw "+p.title+" ("+p.place+") and would like to discuss something similar.");
   sheet.classList.add("open");
@@ -956,8 +957,12 @@ function openSheet(key){
   document.body.style.overflow = "hidden";
 }
 function closeSheet(){ sheet.classList.remove("open"); document.body.style.overflow = ""; }
-sheet.addEventListener("click", function(e){ if(e.target.closest("[data-close]")) closeSheet(); });
-document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeSheet(); });
+sheet.addEventListener("click", function(e){
+  if(e.target.closest("[data-close]")){ closeSheet(); return; }
+  var thumb = e.target.closest(".sh-thumb");
+  if(thumb && sheetKey){ openLightbox(sheetKey, +thumb.dataset.idx || 0); }
+});
+document.addEventListener("keydown", function(e){ if(e.key === "Escape" && !lb.classList.contains("open")) closeSheet(); });
 
 /* ---------- lightbox (fullscreen project photos) ---------- */
 var lb = document.getElementById("lb"),
@@ -984,7 +989,7 @@ function openLightbox(key, start){
   document.body.style.overflow = "hidden";
 }
 function lbGo(d){ lbIdx = (lbIdx + d + lbList.length) % lbList.length; lbRender(); }
-function closeLb(){ lb.classList.remove("open"); document.body.style.overflow = ""; }
+function closeLb(){ lb.classList.remove("open"); document.body.style.overflow = sheet.classList.contains("open") ? "hidden" : ""; }
 lb.addEventListener("click", function(e){
   if(e.target.closest("[data-lb-next]")){ lbGo(1); return; }
   if(e.target.closest("[data-lb-prev]")){ lbGo(-1); return; }
