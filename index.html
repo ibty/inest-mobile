@@ -461,6 +461,39 @@ a{color:inherit;text-decoration:none}
 }
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
+/* lightbox — fullscreen project photos */
+.reel__img,.reel__scrim{cursor:zoom-in}
+.lb{
+  position:fixed;inset:0;z-index:110;max-width:480px;margin:0 auto;
+  background:rgba(6,5,4,.97);display:grid;place-items:center;
+  opacity:0;pointer-events:none;transition:opacity .28s ease;
+}
+.lb.open{opacity:1;pointer-events:auto}
+.lb__img{
+  max-width:100%;max-height:82svh;object-fit:contain;
+  user-select:none;-webkit-user-drag:none;
+}
+.lb__count{
+  position:absolute;top:calc(16px + env(safe-area-inset-top));left:0;right:0;
+  text-align:center;font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+}
+.lb__close{
+  position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;
+  width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(240,234,225,.2);background:rgba(8,6,5,.5);backdrop-filter:blur(8px);
+  color:var(--stone);font-size:1.05rem;line-height:1;display:grid;place-items:center;
+}
+.lb__close:active{transform:scale(.92)}
+.lb__nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;border-radius:50%;
+  border:1px solid rgba(240,234,225,.2);background:rgba(8,6,5,.5);backdrop-filter:blur(8px);
+  color:var(--stone);font-size:1.5rem;line-height:1;display:grid;place-items:center;
+}
+.lb__prev{left:10px}
+.lb__next{right:10px}
+.lb__nav:active{transform:translateY(-50%) scale(.92)}
+
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition-duration:.01ms!important}
   .rv{opacity:1;transform:none}
@@ -719,6 +752,14 @@ a{color:inherit;text-decoration:none}
 
 <div class="toast" id="toast"></div>
 
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Project photos">
+  <div class="lb__count" id="lb-count"></div>
+  <button class="lb__close" data-lb-close aria-label="Close">✕</button>
+  <button class="lb__nav lb__prev" data-lb-prev aria-label="Previous photo">‹</button>
+  <img class="lb__img" id="lb-img" alt="">
+  <button class="lb__nav lb__next" data-lb-next aria-label="Next photo">›</button>
+</div>
+
 <script>
 (function(){
 "use strict";
@@ -779,7 +820,7 @@ FEED.forEach(function(f,i){
   var p = PROJECTS[f.key];
   var n = String(i+1).padStart(2,"0"), tot = String(FEED.length).padStart(2,"0");
   html +=
-  '<article class="reel" data-i="'+i+'" data-key="'+f.key+'">'+
+  '<article class="reel" data-i="'+i+'" data-key="'+f.key+'" data-frame="'+f.frame+'">'+
     '<div class="reel__fallback"></div>'+
     '<img class="reel__img" loading="lazy" alt="'+p.title+', '+p.place+'" src="'+f.src+'" onerror="this.style.display=\'none\'">'+
     '<div class="reel__scrim"></div>'+
@@ -890,7 +931,10 @@ reelsEl.addEventListener("click", function(ev){
   }
 
   var more = ev.target.closest(".js-more");
-  if(more){ openSheet(more.closest(".reel").dataset.key); }
+  if(more){ openSheet(more.closest(".reel").dataset.key); return; }
+
+  var media = ev.target.closest(".reel__img,.reel__scrim,.reel__fallback");
+  if(media){ var r = media.closest(".reel"); if(r) openLightbox(r.dataset.key, (+r.dataset.frame || 1) - 1); }
 });
 
 /* ---------- sheet ---------- */
@@ -914,6 +958,52 @@ function openSheet(key){
 function closeSheet(){ sheet.classList.remove("open"); document.body.style.overflow = ""; }
 sheet.addEventListener("click", function(e){ if(e.target.closest("[data-close]")) closeSheet(); });
 document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeSheet(); });
+
+/* ---------- lightbox (fullscreen project photos) ---------- */
+var lb = document.getElementById("lb"),
+    lbImg = document.getElementById("lb-img"),
+    lbCount = document.getElementById("lb-count"),
+    lbPrev = lb.querySelector(".lb__prev"),
+    lbNext = lb.querySelector(".lb__next");
+var lbList = [], lbIdx = 0, lbTitle = "";
+function lbRender(){
+  lbImg.src = lbList[lbIdx];
+  lbImg.alt = lbTitle + " — photo " + (lbIdx+1) + " of " + lbList.length;
+  lbCount.textContent = (lbIdx+1) + " / " + lbList.length;
+  var one = lbList.length < 2;
+  lbPrev.style.display = one ? "none" : "";
+  lbNext.style.display = one ? "none" : "";
+}
+function openLightbox(key, start){
+  var p = PROJECTS[key]; if(!p) return;
+  lbList = p.imgs.map(function(s){ return B + s; });
+  lbTitle = p.title;
+  lbIdx = Math.max(0, Math.min(start || 0, lbList.length - 1));
+  lbRender();
+  lb.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function lbGo(d){ lbIdx = (lbIdx + d + lbList.length) % lbList.length; lbRender(); }
+function closeLb(){ lb.classList.remove("open"); document.body.style.overflow = ""; }
+lb.addEventListener("click", function(e){
+  if(e.target.closest("[data-lb-next]")){ lbGo(1); return; }
+  if(e.target.closest("[data-lb-prev]")){ lbGo(-1); return; }
+  if(e.target.closest("[data-lb-close]")){ closeLb(); return; }
+  if(e.target === lb) closeLb();
+});
+document.addEventListener("keydown", function(e){
+  if(!lb.classList.contains("open")) return;
+  if(e.key === "Escape") closeLb();
+  else if(e.key === "ArrowRight") lbGo(1);
+  else if(e.key === "ArrowLeft") lbGo(-1);
+});
+var lbSX = 0, lbSY = 0;
+lb.addEventListener("touchstart", function(e){ lbSX = e.touches[0].clientX; lbSY = e.touches[0].clientY; }, {passive:true});
+lb.addEventListener("touchend", function(e){
+  var dx = e.changedTouches[0].clientX - lbSX, dy = e.changedTouches[0].clientY - lbSY;
+  if(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lbGo(dx < 0 ? 1 : -1);
+  else if(dy > 60 && Math.abs(dy) > Math.abs(dx)) closeLb();
+}, {passive:true});
 
 })();
 </script>
